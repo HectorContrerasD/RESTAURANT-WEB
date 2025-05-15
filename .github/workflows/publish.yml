@@ -16,8 +16,8 @@ jobs:
       - name: Conectar a VPS y desplegar
         uses: appleboy/ssh-action@v0.1.10
         with:
-          host: ${{ secrets.server }} # o la ip de tu vps
-          username: ${{ secrets.user}}
-          key: ${{ secrets.password }}
+          host: ${{ secrets.SERVER }} # o la ip de tu vps
+          username: ${{ secrets.USER}}
+          key: ${{ secrets.PASSWORD }}
           script: |
             sudo ./install-web.sh
