@@ -18,6 +18,6 @@ jobs:
         with:
           host: ${{ secrets.SERVER }} # o la ip de tu vps
           username: ${{ secrets.USER}}
-          password: ${{ secrets.PASSWORD }}
+          key: ${{ secrets.PASSWORD }}
           script: |
             sudo ./install-web.sh
