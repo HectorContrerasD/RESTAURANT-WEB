@@ -1,0 +1,23 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      - name: Conectar a VPS y desplegar
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.server }} # o la ip de tu vps
+          username: ${{ secrets.user}}
+          key: ${{ secrets.password }}
+          script: |
+            sudo ./install-web.sh
