@@ -27,7 +27,7 @@ namespace Restaurant_Cocineros.Services
         public async Task<string> Login(LoginDTO loginDTO)
         {
             var jsonContent = new StringContent(JsonSerializer.Serialize(loginDTO), Encoding.UTF8, "application/json");
-            var response = await httpClient.PostAsync("api/login", jsonContent);
+            var response = await httpClient.PostAsync("api/auth/login", jsonContent);
             try
             {
                 var result = await response.Content.ReadAsStringAsync();

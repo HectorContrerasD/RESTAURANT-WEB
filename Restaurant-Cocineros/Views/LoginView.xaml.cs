@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Restaurant_Cocineros.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,6 +26,12 @@ namespace Restaurant_Cocineros.Views
            
         }
 
-       
+        private void pswUsuario_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is LoginViewModel vm)
+            {
+                vm.Password = ((PasswordBox)sender).Password;
+            }
+        }
     }
 }

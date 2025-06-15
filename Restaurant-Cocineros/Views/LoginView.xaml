@@ -6,10 +6,13 @@
         Width="400"
         Background="#FEF0D7"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="CanMinimize">
-
+        ResizeMode="CanMinimize"
+        xmlns:vm="clr-namespace:Restaurant_Cocineros.ViewModels">
+    <Window.DataContext>
+        <vm:LoginViewModel></vm:LoginViewModel>
+    </Window.DataContext>
     <Window.Resources>
-        <!-- Estilo para TextBox con icono -->
+       
         <Style x:Key="IconTextBoxStyle" TargetType="TextBox">
             <Setter Property="Width" Value="250"/>
             <Setter Property="Height" Value="40"/>
@@ -63,7 +66,7 @@
             </Setter>
         </Style>
 
-        <!-- Estilo para PasswordBox con icono -->
+       
         <Style x:Key="IconPasswordBoxStyle" TargetType="PasswordBox">
             <Setter Property="Width" Value="250"/>
             <Setter Property="Height" Value="40"/>
@@ -108,7 +111,7 @@
             </Setter>
         </Style>
 
-        <!-- Estilo para labels -->
+     
         <Style x:Key="LabelStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#333333"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -117,7 +120,7 @@
             <Setter Property="HorizontalAlignment" Value="Left"/>
         </Style>
 
-        <!-- Estilo para botón -->
+      
         <Style x:Key="LoginButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="#E06734"/>
             <Setter Property="Foreground" Value="White"/>
@@ -153,32 +156,33 @@
         <StackPanel HorizontalAlignment="Center" 
                     VerticalAlignment="Center">
 
-            <!-- Logo -->
+           
             <Image Source="/Assets/logorestaurante2.png" 
                    Width="310" 
                    Height="230" 
                    Margin="0,0,0,20"/>
 
-            <!-- Formulario -->
+     
             <StackPanel HorizontalAlignment="Center">
 
-                <!-- Campo Usuario -->
+             
                 <StackPanel Margin="0,0,0,20">
                     <TextBlock Text="Usuario:" Style="{StaticResource LabelStyle}"/>
                     <TextBox x:Name="txtUsuario"
                              Style="{StaticResource IconTextBoxStyle}"
-                             Tag="Usuario"/>
+                             Tag="Usuario"
+                             Text="{Binding Username}"/>
                 </StackPanel>
 
-                <!-- Campo Contraseña -->
-                <StackPanel Margin="0,0,0,20">
+                    <StackPanel Margin="0,0,0,20">
                     <TextBlock Text="Contraseña:" Style="{StaticResource LabelStyle}"/>
-                    <PasswordBox x:Name="pswUsuario"
+                    <PasswordBox PasswordChanged="pswUsuario_PasswordChanged" x:Name="pswUsuario"
                                  Style="{StaticResource IconPasswordBoxStyle}"/>
                 </StackPanel>
 
-                <!-- Botón -->
+                
                 <Button x:Name="btnLogin"
+                        Command="{Binding ConfirmarCommand}"
                         Content="Iniciar sesión"
                         Style="{StaticResource LoginButtonStyle}"/>
 
