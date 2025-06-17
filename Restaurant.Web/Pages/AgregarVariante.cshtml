@@ -11,14 +11,13 @@
         <h1>Agregar variante</h1>
         <div class="producto-seleccionado" id="productoNombreHeader">Producto seleccionado</div>
         <div class="producto2">
-            <img src="/Restaurant.Web/wwwroot/Assets/HamSencilla.png" class="producto-img" id="productoImg" alt="Producto">
+            <img src="/assets/HamburguesaSencilla2.png" class="producto-img" id="productoImg" alt="Producto">
             <div class="producto-seleccionado" id="productoNombre">Cargando...</div>
             <div class="producto-precio" id="productoPrecio">$0.00</div>
         </div>
 
         <form class="variante-form" id="varianteForm">
             <div id="variantes-container">
-             
                 <div class="loading">Cargando variantes...</div>
             </div>
 
@@ -48,34 +47,51 @@
     let productoData = {};
     let precioBase = 0;
 
-   
     function getAuthToken() {
         return localStorage.getItem('accessToken');
     }
 
-    
     function getProductoSeleccionado() {
         return localStorage.getItem('productoSeleccionado');
     }
 
-   
+    // Función corregida para obtener la imagen correcta del producto
     function getProductoImage(nombreProducto) {
         const nombre = nombreProducto.toLowerCase();
-        if (nombre.includes('queso')) {
-            return '/Restaurant.Web/wwwroot/Assets/HamConQueso.jpeg';
-        } else if (nombre.includes('sencilla')) {
-            return '/Restaurant.Web/wwwroot/Assets/HamSencilla.png';
-        } else if (nombre.includes('hamburguesa')) {
-            return '/Restaurant.Web/wwwroot/Assets/HamSencilla.png';
-        } else if (nombre.includes('papas')) {
-            return '/Restaurant.Web/wwwroot/Assets/PapasFritas.png';
-        } else if (nombre.includes('refresco') || nombre.includes('bebida')) {
-            return '/Restaurant.Web/wwwroot/Assets/Refresco.png';
+
+        // Hamburguesas (Categoría 1)
+        if (nombre.includes('sencilla')) {
+            return '/assets/HamburguesaSencilla2.png';
+        } else if (nombre.includes('doble')) {
+            return '/assets/HamburguesaDoble2.png';
+        } else if (nombre.includes('queso')) {
+            return '/assets/HamburguesaConQueso2.png';
         }
-        return '/Restaurant.Web/wwwroot/Assets/HamSencilla.png';
+        // Papas (Categoría 2)
+        else if (nombre.includes('papas chicas')) {
+            return '/assets/PapasChicas.png';
+        } else if (nombre.includes('papas grandes')) {
+            return '/assets/PapasGrandes.png';
+        }
+        // Refrescos (Categoría 3)
+        else if (nombre.includes('refresco chico')) {
+            return '/assets/RefrescoChico.png';
+        } else if (nombre.includes('refresco grande') || nombre.includes('regresco grande')) {
+            return '/assets/RefrescoGrande.png';
+        }
+        // Fallbacks más generales
+        else if (nombre.includes('hamburguesa')) {
+            return '/assets/HamburguesaSencilla2.png';
+        } else if (nombre.includes('papas')) {
+            return '/assets/PapasChicas.png';
+        } else if (nombre.includes('refresco') || nombre.includes('regresco') || nombre.includes('bebida')) {
+            return '/assets/RefrescoChico.png';
+        }
+
+        // Imagen por defecto
+        return '/assets/HamburguesaSencilla2.png';
     }
 
-   
     function cargarDatosProducto() {
         const productoNombre = localStorage.getItem('productoNombre');
         const productoPrecio = localStorage.getItem('productoPrecio');
@@ -94,7 +110,6 @@
         }
     }
 
- 
     async function cargarVariantes() {
         try {
             const token = getAuthToken();
@@ -136,7 +151,6 @@
         }
     }
 
-
     function mostrarVariantes(variantes) {
         const container = document.getElementById('variantes-container');
 
@@ -162,7 +176,6 @@
         container.innerHTML = html;
     }
 
-  
     function cambiarCantidad(delta) {
         const cantidadInput = document.getElementById('cantidad');
         const nuevaCantidad = parseInt(cantidadInput.value) + delta;
@@ -172,20 +185,16 @@
         }
     }
 
-   
     function seleccionarVariante(elemento) {
-       
         const todasLasVariantes = document.querySelectorAll('.variante-option');
         todasLasVariantes.forEach(variante => {
             variante.classList.remove('selected');
         });
 
-       
         elemento.classList.add('selected');
         actualizarPrecioTotal();
     }
 
-   
     function actualizarPrecioTotal() {
         const cantidad = parseInt(document.getElementById('cantidad').value);
         const varianteSeleccionada = document.querySelector('.variante-option.selected');
@@ -199,7 +208,6 @@
         document.getElementById('precioTotal').textContent = `Total: $${precioTotal.toFixed(2)}`;
     }
 
-   
     function agregarAlPedido() {
         const productoId = parseInt(getProductoSeleccionado());
         const cantidad = parseInt(document.getElementById('cantidad').value);
@@ -211,56 +219,45 @@
             return;
         }
 
-       
         let ticketItem = {
             productoId: productoId,
             cantidad: cantidad
         };
 
-        
         if (varianteSeleccionada) {
             ticketItem.varianteId = parseInt(varianteSeleccionada.dataset.id);
         }
 
-        
         let pedido = JSON.parse(localStorage.getItem('pedidoActual')) || {
             mesaId: mesaId,
             ticketItems: []
         };
 
-        
         const itemExistente = pedido.ticketItems.find(item =>
             item.productoId === ticketItem.productoId &&
             item.varianteId === ticketItem.varianteId
         );
 
         if (itemExistente) {
-           
             itemExistente.cantidad += ticketItem.cantidad;
         } else {
-            
             pedido.ticketItems.push(ticketItem);
         }
 
-        
         localStorage.setItem('pedidoActual', JSON.stringify(pedido));
 
-        
         alert('Producto agregado al pedido exitosamente');
 
-       
         limpiarVarianteSeleccionada();
         window.location.href = '/FinalizarPedido';
     }
 
-  
     function limpiarVarianteSeleccionada() {
         localStorage.removeItem('productoSeleccionado');
         localStorage.removeItem('productoNombre');
         localStorage.removeItem('productoPrecio');
     }
 
-    
     document.addEventListener('DOMContentLoaded', function () {
         cargarDatosProducto();
         cargarVariantes();

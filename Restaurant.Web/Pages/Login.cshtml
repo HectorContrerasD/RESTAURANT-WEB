@@ -19,142 +19,185 @@
     </div>
 </body>
 </html>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-           
-            const token = localStorage.getItem('accessToken');
-            if (token) {
-              
-                window.location.href = '/Pedidos';
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+            // Si ya hay token, redirigir según el rol
+            redirectByRole(token);
+            return;
+        }
+
+        const loginBtn = document.getElementById('loginBtn');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const mensajeDiv = document.getElementById('mensaje');
+        const loadingDiv = document.getElementById('loading');
+
+
+        [usernameInput, passwordInput].forEach(input => {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    login();
+                }
+            });
+        });
+
+
+        loginBtn.addEventListener('click', login);
+
+        // Función para decodificar JWT
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (e) {
+                console.error('Error parsing JWT:', e);
+                return null;
+            }
+        }
+
+        // Función para redirigir según el rol
+        function redirectByRole(token) {
+            const payload = parseJwt(token);
+
+            if (!payload) {
+                console.error('Token inválido');
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('loginTime');
                 return;
             }
 
-            const loginBtn = document.getElementById('loginBtn');
-            const usernameInput = document.getElementById('username');
-            const passwordInput = document.getElementById('password');
-            const mensajeDiv = document.getElementById('mensaje');
-            const loadingDiv = document.getElementById('loading');
+            const role = payload.role?.toLowerCase();
 
-           
-            [usernameInput, passwordInput].forEach(input => {
-                input.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        login();
-                    }
+            switch (role) {
+                case 'mesero':
+                    window.location.href = '/Pedidos';
+                    break;
+                case 'cocinero':
+                    window.location.href = '/ItemsCocina';
+                    break;
+                default:
+                    console.warn('Rol no reconocido:', role);
+                    // Redirigir a una página por defecto o mostrar error
+                    window.location.href = '/Pedidos'; // página por defecto
+                    break;
+            }
+        }
+
+        async function login() {
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value.trim();
+
+
+            if (!username) {
+                mostrarMensaje('Por favor, ingrese su usuario', 'error');
+                usernameInput.focus();
+                return;
+            }
+
+            if (!password) {
+                mostrarMensaje('Por favor, ingrese su contraseña', 'error');
+                passwordInput.focus();
+                return;
+            }
+
+
+            loginBtn.disabled = true;
+            loadingDiv.style.display = 'block';
+            mensajeDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('https://restaurant-api.websitos256.com/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
                 });
-            });
 
-          
-            loginBtn.addEventListener('click', login);
+                if (response.ok) {
+                    const data = await response.json();
 
-            async function login() {
-                const username = usernameInput.value.trim();
-                const password = passwordInput.value.trim();
 
-                
-                if (!username) {
-                    mostrarMensaje('Por favor, ingrese su usuario', 'error');
-                    usernameInput.focus();
-                    return;
-                }
-                
-                if (!password) {
-                    mostrarMensaje('Por favor, ingrese su contraseña', 'error');
-                    passwordInput.focus();
-                    return;
-                }
+                    localStorage.setItem('accessToken', data.accessToken);
 
-                
-                loginBtn.disabled = true;
-                loadingDiv.style.display = 'block';
-                mensajeDiv.style.display = 'none';
 
-                try {
-                    const response = await fetch('https://restaurant-api.websitos256.com/api/auth/login', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                       
-                        body: JSON.stringify({
-                            username: username,
-                            password: password
-                        })
-                    });
+                    localStorage.setItem('loginTime', new Date().getTime().toString());
 
-                    if (response.ok) {
-                        const data = await response.json();
-                        
-                       
-                        localStorage.setItem('accessToken', data.accessToken);
-                        
-                        
-                        localStorage.setItem('loginTime', new Date().getTime().toString());
-                        
-                        mostrarMensaje('Inicio de sesión exitoso. Redirigiendo...', 'success');
-                        
-                        
-                        setTimeout(() => {
-                            window.location.href = '/Pedidos';
-                        }, 1000);
+                    mostrarMensaje('Inicio de sesión exitoso. Redirigiendo...', 'success');
 
-                    } else {
-                        let errorMessage = 'Error al iniciar sesión';
-                        
-                        if (response.status === 401) {
-                            errorMessage = 'Usuario o contraseña incorrectos';
-                        } else if (response.status === 400) {
-                            
-                            try {
-                                const errorData = await response.json();
-                                if (errorData.errors && Array.isArray(errorData.errors)) {
-                                    errorMessage = errorData.errors.join(', ');
-                                } else if (errorData.message) {
-                                    errorMessage = errorData.message;
-                                } else if (errorData.title) {
-                                    errorMessage = errorData.title;
-                                }
-                            } catch (e) {
-                                errorMessage = 'Datos inválidos. Verifique la información ingresada';
-                            }
-                        } else if (response.status >= 500) {
-                            errorMessage = 'Error del servidor. Intente más tarde';
-                        } else {
-                            
-                            try {
-                                const errorData = await response.json();
-                                errorMessage = errorData.message || errorData.title || 'Error desconocido';
-                            } catch (e) {
-                                errorMessage = `Error ${response.status}. Intente nuevamente`;
-                            }
-                        }
-                        
-                        mostrarMensaje(errorMessage, 'error');
-                    }
-                } catch (error) {
-                    console.error('Error de conexión:', error);
-                    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                        mostrarMensaje('No se pudo conectar con el servidor. Verifique su conexión', 'error');
-                    } else {
-                        mostrarMensaje('Error de conexión. Intente nuevamente', 'error');
-                    }
-                } finally {
-                   
-                    loginBtn.disabled = false;
-                    loadingDiv.style.display = 'none';
-                }
-            }
 
-            function mostrarMensaje(mensaje, tipo) {
-                mensajeDiv.textContent = mensaje;
-                mensajeDiv.className = `mensaje-${tipo}`;
-                mensajeDiv.style.display = 'block';
-                
-                if (tipo === 'error') {
                     setTimeout(() => {
-                        mensajeDiv.style.display = 'none';
-                    }, 5000);
+                        redirectByRole(data.accessToken);
+                    }, 1000);
+
+                } else {
+                    let errorMessage = 'Error al iniciar sesión';
+
+                    if (response.status === 401) {
+                        errorMessage = 'Usuario o contraseña incorrectos';
+                    } else if (response.status === 400) {
+
+                        try {
+                            const errorData = await response.json();
+                            if (errorData.errors && Array.isArray(errorData.errors)) {
+                                errorMessage = errorData.errors.join(', ');
+                            } else if (errorData.message) {
+                                errorMessage = errorData.message;
+                            } else if (errorData.title) {
+                                errorMessage = errorData.title;
+                            }
+                        } catch (e) {
+                            errorMessage = 'Datos inválidos. Verifique la información ingresada';
+                        }
+                    } else if (response.status >= 500) {
+                        errorMessage = 'Error del servidor. Intente más tarde';
+                    } else {
+
+                        try {
+                            const errorData = await response.json();
+                            errorMessage = errorData.message || errorData.title || 'Error desconocido';
+                        } catch (e) {
+                            errorMessage = `Error ${response.status}. Intente nuevamente`;
+                        }
+                    }
+
+                    mostrarMensaje(errorMessage, 'error');
                 }
+            } catch (error) {
+                console.error('Error de conexión:', error);
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    mostrarMensaje('No se pudo conectar con el servidor. Verifique su conexión', 'error');
+                } else {
+                    mostrarMensaje('Error de conexión. Intente nuevamente', 'error');
+                }
+            } finally {
+
+                loginBtn.disabled = false;
+                loadingDiv.style.display = 'none';
             }
-        });
-    </script>
+        }
+
+        function mostrarMensaje(mensaje, tipo) {
+            mensajeDiv.textContent = mensaje;
+            mensajeDiv.className = `mensaje-${tipo}`;
+            mensajeDiv.style.display = 'block';
+
+            if (tipo === 'error') {
+                setTimeout(() => {
+                    mensajeDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+    });
+</script>

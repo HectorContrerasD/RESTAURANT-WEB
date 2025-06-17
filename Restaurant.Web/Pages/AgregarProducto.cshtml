@@ -11,7 +11,6 @@
         <h1 id="categoria-nombre">Productos</h1>
         <h3>Lista de productos</h3>
         <div class="productos" id="productos-container">
-           
             <div class="loading">Cargando productos...</div>
         </div>
         <a href="/AgregarCategoria" class="boton-secundario" onclick="limpiarProductoSeleccionado()">Anterior</a>
@@ -19,35 +18,51 @@
 </body>
 </html>
 <script>
-   
     function getAuthToken() {
         return localStorage.getItem('accessToken');
     }
 
-   
     function getCategoriaSeleccionada() {
         return localStorage.getItem('categoriaSeleccionada');
     }
 
-  
+    // Función mejorada para obtener la imagen correcta del producto
     function getProductoImage(nombreProducto) {
         const nombre = nombreProducto.toLowerCase();
-        if (nombre.includes('queso')) {
-            return '/Restaurant.Web/wwwroot/Assets/HamConQueso.jpeg';
-        } else if (nombre.includes('sencilla')) {
-            return '/Restaurant.Web/wwwroot/Assets/HamSencilla.png';
-        } else if (nombre.includes('hamburguesa')) {
-            return '/Restaurant.Web/wwwroot/Assets/HamSencilla.png';
-        } else if (nombre.includes('papas')) {
-            return '/Restaurant.Web/wwwroot/Assets/PapasFritas.png';
-        } else if (nombre.includes('refresco') || nombre.includes('bebida')) {
-            return '/Restaurant.Web/wwwroot/Assets/Refresco.png';
+
+        // Hamburguesas (Categoría 1)
+        if (nombre.includes('sencilla')) {
+            return '/assets/HamburguesaSencilla2.png';
+        } else if (nombre.includes('doble')) {
+            return '/assets/HamburguesaDoble2.png';
+        } else if (nombre.includes('queso')) {
+            return '/assets/HamburguesaConQueso2.png';
         }
-       
-        return '/Restaurant.Web/wwwroot/Assets/HamSencilla.png';
+        // Papas (Categoría 2)
+        else if (nombre.includes('papas chicas')) {
+            return '/assets/PapasChicas.png';
+        } else if (nombre.includes('papas grandes')) {
+            return '/assets/PapasGrandes.png';
+        }
+        // Refrescos (Categoría 3)
+        else if (nombre.includes('refresco chico')) {
+            return '/assets/RefrescoChico.png';
+        } else if (nombre.includes('refresco grande') || nombre.includes('regresco grande')) {
+            return '/assets/RefrescoGrande.png';
+        }
+        // Fallbacks más generales
+        else if (nombre.includes('hamburguesa')) {
+            return '/assets/HamburguesaSencilla2.png';
+        } else if (nombre.includes('papas')) {
+            return '/assets/PapasChicas.png';
+        } else if (nombre.includes('refresco') || nombre.includes('regresco') || nombre.includes('bebida')) {
+            return '/assets/RefrescoChico.png';
+        }
+
+        // Imagen por defecto
+        return '/assets/HamburguesaSencilla2.png';
     }
 
-    
     async function cargarProductos() {
         try {
             const token = getAuthToken();
@@ -89,7 +104,6 @@
         }
     }
 
-  
     function mostrarProductos(productos) {
         const container = document.getElementById('productos-container');
 
@@ -104,7 +118,7 @@
             html += `
                     <div class="producto">
                         <a href="#" onclick="seleccionarProducto(${producto.id}, '${producto.nombre}', ${producto.precioBase})">
-                            <img src="${imagen}" alt="${producto.nombre}">
+                            <img src="${imagen}" alt="${producto.nombre}" onerror="this.src='/assets/HamburguesaSencilla2.png'">
                             <p>${producto.nombre}</p>
                             <span class="precio">$${producto.precioBase.toFixed(2)}</span>
                         </a>
@@ -115,9 +129,7 @@
         container.innerHTML = html;
     }
 
-    
     function seleccionarProducto(productoId, productoNombre, productoPrecio) {
-       
         localStorage.setItem('productoSeleccionado', productoId);
         localStorage.setItem('productoNombre', productoNombre);
         localStorage.setItem('productoPrecio', productoPrecio);
@@ -125,14 +137,12 @@
         window.location.href = `/AgregarVariante`;
     }
 
- 
     function limpiarProductoSeleccionado() {
         localStorage.removeItem('productoSeleccionado');
         localStorage.removeItem('productoNombre');
         localStorage.removeItem('productoPrecio');
     }
 
-   
     function actualizarTituloCategoria() {
         const categoriaNombre = localStorage.getItem('categoriaNombre');
         if (categoriaNombre) {
@@ -140,7 +150,6 @@
         }
     }
 
-    
     document.addEventListener('DOMContentLoaded', function () {
         actualizarTituloCategoria();
         cargarProductos();
