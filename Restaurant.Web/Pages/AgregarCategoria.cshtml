@@ -1,0 +1,118 @@
+﻿@page
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Categorías - Mesero</title>
+    <link rel="stylesheet" href="~/CSS/StyleMesero.css">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Pedido para la Mesa 1</h1>
+        <h3>Selecciona una categoría</h3>
+        <div class="categorias" id="categorias-container">
+      
+            <div class="loading">Cargando categorías...</div>
+        </div>
+        <a href="/CrearPedido" class="boton-secundario">Cancelar</a>
+    </div>
+</body>
+    <script>
+       
+        function getAuthToken() {
+            return localStorage.getItem('accessToken');
+        }
+
+      
+        function getCategoriaImage(nombreCategoria) {
+            const nombre = nombreCategoria.toLowerCase();
+            if (nombre.includes('hamburguesas')) {
+                return '/assets/HamSencilla.png';
+            } else if (nombre.includes('papas')) {
+                return '/assets/PapasFritas.png';
+            } else if (nombre.includes('refrescos') || nombre.includes('bebida')) {
+                return '/assets/Refresco.png';
+            }
+           
+        }
+
+        
+        async function cargarCategorias() {
+            try {
+                const token = getAuthToken();
+
+                if (!token) {
+                    alert('Token de autorización no encontrado. Por favor, inicia sesión nuevamente.');
+                    return;
+                }
+
+                const response = await fetch('https://restaurant-api.websitos256.com/api/categoria', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} - ${response.statusText}`);
+                }
+
+                const categorias = await response.json();
+                mostrarCategorias(categorias);
+
+            } catch (error) {
+                console.error('Error al cargar categorías:', error);
+                document.getElementById('categorias-container').innerHTML =
+                    '<div class="error">Error al cargar las categorías. Por favor, intenta nuevamente.</div>';
+            }
+        }
+
+        
+        function mostrarCategorias(categorias) {
+            const container = document.getElementById('categorias-container');
+
+            if (categorias.length === 0) {
+                container.innerHTML = '<div class="no-data">No hay categorías disponibles.</div>';
+                return;
+            }
+
+            let html = '';
+            categorias.forEach(categoria => {
+                const imagen = getCategoriaImage(categoria.nombre);
+                html += `
+                            <div class="categoria-item" onclick="seleccionarCategoria(${categoria.id}, '${categoria.nombre}')">
+                                <img src="${imagen}" alt="${categoria.nombre}" class="categoria-imagen">
+                                <span class="categoria-nombre">${categoria.nombre}</span>
+                            </div>
+                        `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        
+        function seleccionarCategoria(categoriaId, categoriaNombre) {
+           
+            localStorage.setItem('categoriaSeleccionada', categoriaId);
+
+           
+            window.location.href = `/AgregarProducto`;
+        }
+
+       
+        function cancelarPedido() {
+           
+            localStorage.removeItem('mesaSeleccionada');
+            localStorage.removeItem('categoriaSeleccionada');
+            localStorage.removeItem('categoriaNombre');
+
+            window.location.href = '/CrearPedido';
+        }
+
+       
+        document.addEventListener('DOMContentLoaded', function () {
+            cargarCategorias();
+        });
+    </script>
+

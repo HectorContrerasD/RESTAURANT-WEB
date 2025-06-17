@@ -5,62 +5,243 @@
     <meta charset="utf-8" />
     <title>Lista de pedidos</title>
     <link rel="stylesheet" href="~/CSS/StyleMesero.css">
-
 </head>
 <body>
     <div class="contenedor">
-
         <div class="header">
             <img src="~/Assets/MenuRestaurante.png" class="menuicono" id="menuToggle" />
         </div>
-
         <nav class="menu" id="menuOpciones">
-            <a href="CrearPedido.html">Crear Pedido</a>
-            <a href="Pedidos.html">Lista de Pedidos</a>
-            <a href="../../Login.html">Cerrar sesión</a>
+            <a href="/CrearPedido">Crear Pedido</a>
+            <a href="/Pedidos">Lista de Pedidos</a>
+            <a href="#" id="logoutBtn">Cerrar sesión</a>
         </nav>
-
         <h2>Pedidos Activos</h2>
-
-        <div class="pedidos-lista">
-            <div class="pedido">
-                <p><strong>Mesa 3</strong> - 3 productos</p>
-                <div class="boton-grupo">
-                    <a href="VerPedido.html?mesa=3" class="boton-secundario2">Ver</a>
-                    <button class="boton-secundario2" onclick="cancelarPedido(3)">Cancelar</button>
-                </div>
-            </div>
-            <div class="pedido">
-                <p><strong>Mesa 6</strong> - 2 productos</p>
-                <div class="boton-grupo">
-                    <a href="VerPedido.html?mesa=6" class="boton-secundario2">Ver</a>
-                    <button class="boton-secundario2" onclick="cancelarPedido(6)">Cancelar</button>
-                </div>
-            </div>
+        <div id="loadingPedidos" style="display: none; text-align: center; padding: 20px;">
+            Cargando pedidos...
+        </div>
+        <div id="errorPedidos" style="display: none; text-align: center; padding: 20px; color: red;">
+        </div>
+        <div class="pedidos-lista" id="pedidosContainer">
+           
         </div>
     </div>
 
     <script>
-        const toggleBtn = document.getElementById('menuToggle');
-        const menu = document.getElementById('menuOpciones');
-
-        toggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!menu.contains(e.target) && e.target !== toggleBtn) {
-                menu.style.display = 'none';
+        document.addEventListener('DOMContentLoaded', function () {
+          
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/Login';
+                return;
             }
-        });
 
-        function cancelarPedido(mesa) {
-            const confirmar = confirm(`¿Seguro que quieres cancelar el pedido de la Mesa ${mesa}?`);
-            if (confirmar) {
-                alert(`Pedido de la Mesa ${mesa} cancelado`);
+          
+            const toggleBtn = document.getElementById('menuToggle');
+            const menu = document.getElementById('menuOpciones');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const pedidosContainer = document.getElementById('pedidosContainer');
+            const loadingPedidos = document.getElementById('loadingPedidos');
+            const errorPedidos = document.getElementById('errorPedidos');
+
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!menu.contains(e.target) && e.target !== toggleBtn) {
+                    menu.style.display = 'none';
+                }
+            });
+
+           
+            logoutBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                await logout();
+            });
+
+          
+            cargarPedidos();
+
+            function normalizarRespuesta(data) {
+              
+                if (Array.isArray(data)) {
+                    return data;
+                }
+
+               
+                if (data && typeof data === 'object') {
+                    
+                    if (data.tickets && Array.isArray(data.tickets)) {
+                        return data.tickets;
+                    }
+                    if (data.data && Array.isArray(data.data)) {
+                        return data.data;
+                    }
+                    if (data.results && Array.isArray(data.results)) {
+                        return data.results;
+                    }
+                    
+                    return [data];
+                }
+
+                
+
+                return [];
             }
-        }
+
+            async function cargarPedidos() {
+                try {
+                    loadingPedidos.style.display = 'block';
+                    errorPedidos.style.display = 'none';
+                    pedidosContainer.innerHTML = '';
+
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); 
+
+                    const response = await fetch('https://restaurant-api.websitos256.com/api/ticket/abierto', {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Cache-Control': 'no-cache'
+                        },
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+
+                    if (response.ok) {
+                        const contentType = response.headers.get('content-type');
+                        let data;
+
+                        if (contentType && contentType.includes('application/json')) {
+                            data = await response.json();
+                        } else {
+                            throw new Error('La respuesta no es JSON válido');
+                        }
+
+                        console.log('Respuesta original:', data);
+
+                        const tickets = normalizarRespuesta(data);
+                        console.log('Tickets normalizados:', tickets);
+
+                        mostrarPedidos(tickets);
+                    } else if (response.status === 401) {
+                        
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('loginTime');
+                        window.location.href = '/Login';
+                    } else {
+                        const errorText = await response.text();
+                        throw new Error(`Error ${response.status}: ${errorText || response.statusText}`);
+                    }
+                } catch (error) {
+                    console.error('Error al cargar pedidos:', error);
+
+                    if (error.name === 'AbortError') {
+                        mostrarError('La petición tardó demasiado tiempo. Intente nuevamente.');
+                    } else if (error.message.includes('CORS')) {
+                        mostrarError('Error de conexión. Verifique su conexión a internet.');
+                    } else {
+                        mostrarError(`Error al cargar los pedidos: ${error.message}`);
+                    }
+                } finally {
+                    loadingPedidos.style.display = 'none';
+                }
+            }
+
+            function mostrarPedidos(tickets) {
+                if (!tickets || tickets.length === 0) {
+                    pedidosContainer.innerHTML = '<p style="text-align: center; padding: 20px;">No hay pedidos activos</p>';
+                    return;
+                }
+
+                const pedidosHTML = tickets.map(ticket => {
+              
+                    if (!ticket || typeof ticket !== 'object') {
+                        console.warn('Ticket inválido:', ticket);
+                        return '';
+                    }
+
+                    const numeroMesa = ticket.mesa?.numero || 'Sin mesa';
+                    const nombreMesero = ticket.mesero?.nombreCompleto || 'Sin mesero';
+                    const total = ticket.total ? `$${ticket.total.toFixed(2)}` : '$0.00';
+                    const fecha = ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : 'Sin fecha';
+                    const cantidadItems = ticket.ticketItems?.length || 0;
+                    const estado = ticket.estado || 'Sin estado';
+                    const ticketId = ticket.id || 0;
+
+                    return `
+                                <div class="pedido">
+                                    <p><strong>Mesa ${numeroMesa}</strong></p>
+                                    <p>Mesero: ${nombreMesero}</p>
+                                    <p>Total: ${total}</p>
+                                    <p>Estado: ${estado}</p>
+                                    <p>Items: ${cantidadItems}</p>
+                                    <p>Fecha: ${fecha}</p>
+                                    <div class="boton-grupo">
+                                        <button class="boton-secundario2" onclick="verPedido(${ticketId})">Ver</button>
+                                    </div>
+                                </div>
+                            `;
+                }).filter(html => html !== '').join('');
+
+                pedidosContainer.innerHTML = pedidosHTML || '<p style="text-align: center; padding: 20px;">No se pudieron cargar los pedidos</p>';
+            }
+
+            function mostrarError(mensaje) {
+                errorPedidos.textContent = mensaje;
+                errorPedidos.style.display = 'block';
+            }
+
+  
+            window.verPedido = function (ticketId) {
+                if (!ticketId || ticketId === 0) {
+                    alert('ID de ticket inválido');
+                    return;
+                }
+
+               
+                localStorage.setItem('selectedTicketId', ticketId);
+
+              
+                window.location.href = '/VerPedido';
+            };
+
+            async function logout() {
+                try {
+                    const response = await fetch('https://restaurant-api.websitos256.com/api/auth/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                   
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('loginTime');
+                    localStorage.removeItem('selectedTicketId');
+
+                    window.location.href = '/Login';
+                } catch (error) {
+                    console.error('Error en logout:', error);
+                 
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('loginTime');
+                    localStorage.removeItem('selectedTicketId');
+                    window.location.href = '/Login';
+                }
+            }
+
+           
+            window.recargarPedidos = function () {
+                cargarPedidos();
+            };
+        });
     </script>
 </body>
 </html>

@@ -1,0 +1,268 @@
+﻿@page
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Agregar Variante - Mesero</title>
+    <link rel="stylesheet" href="~/CSS/StyleMesero.css">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Agregar variante</h1>
+        <div class="producto-seleccionado" id="productoNombreHeader">Producto seleccionado</div>
+        <div class="producto2">
+            <img src="/Restaurant.Web/wwwroot/Assets/HamSencilla.png" class="producto-img" id="productoImg" alt="Producto">
+            <div class="producto-seleccionado" id="productoNombre">Cargando...</div>
+            <div class="producto-precio" id="productoPrecio">$0.00</div>
+        </div>
+
+        <form class="variante-form" id="varianteForm">
+            <div id="variantes-container">
+             
+                <div class="loading">Cargando variantes...</div>
+            </div>
+
+            <div class="cantidad-container">
+                <label for="cantidad">Cantidad:</label>
+                <div class="cantidad-controls">
+                    <button type="button" onclick="cambiarCantidad(-1)">-</button>
+                    <input type="number" id="cantidad" value="1" min="1" readonly>
+                    <button type="button" onclick="cambiarCantidad(1)">+</button>
+                </div>
+            </div>
+
+            <div class="precio-total" id="precioTotal">
+                Total: $0.00
+            </div>
+
+            <div class="boton-grupo">
+                <a href="/AgregarProducto" class="boton-secundario" onclick="limpiarVarianteSeleccionada()">Anterior</a>
+                <button type="button" class="boton-secundario" onclick="agregarAlPedido()">Agregar al pedido</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
+<script>
+    let variantes = [];
+    let productoData = {};
+    let precioBase = 0;
+
+   
+    function getAuthToken() {
+        return localStorage.getItem('accessToken');
+    }
+
+    
+    function getProductoSeleccionado() {
+        return localStorage.getItem('productoSeleccionado');
+    }
+
+   
+    function getProductoImage(nombreProducto) {
+        const nombre = nombreProducto.toLowerCase();
+        if (nombre.includes('queso')) {
+            return '/Restaurant.Web/wwwroot/Assets/HamConQueso.jpeg';
+        } else if (nombre.includes('sencilla')) {
+            return '/Restaurant.Web/wwwroot/Assets/HamSencilla.png';
+        } else if (nombre.includes('hamburguesa')) {
+            return '/Restaurant.Web/wwwroot/Assets/HamSencilla.png';
+        } else if (nombre.includes('papas')) {
+            return '/Restaurant.Web/wwwroot/Assets/PapasFritas.png';
+        } else if (nombre.includes('refresco') || nombre.includes('bebida')) {
+            return '/Restaurant.Web/wwwroot/Assets/Refresco.png';
+        }
+        return '/Restaurant.Web/wwwroot/Assets/HamSencilla.png';
+    }
+
+   
+    function cargarDatosProducto() {
+        const productoNombre = localStorage.getItem('productoNombre');
+        const productoPrecio = localStorage.getItem('productoPrecio');
+
+        if (productoNombre && productoPrecio) {
+            productoData.nombre = productoNombre;
+            productoData.precio = parseFloat(productoPrecio);
+            precioBase = parseFloat(productoPrecio);
+
+            document.getElementById('productoNombreHeader').textContent = productoNombre;
+            document.getElementById('productoNombre').textContent = productoNombre;
+            document.getElementById('productoPrecio').textContent = `$${productoPrecio}`;
+            document.getElementById('productoImg').src = getProductoImage(productoNombre);
+
+            actualizarPrecioTotal();
+        }
+    }
+
+ 
+    async function cargarVariantes() {
+        try {
+            const token = getAuthToken();
+            const productoId = getProductoSeleccionado();
+
+            if (!token) {
+                alert('Token de autorización no encontrado. Por favor, inicia sesión nuevamente.');
+                return;
+            }
+
+            if (!productoId) {
+                alert('No se ha seleccionado un producto.');
+                window.location.href = '/AgregarProducto';
+                return;
+            }
+
+            const response = await fetch(`https://restaurant-api.websitos256.com/api/variante/producto/${productoId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('Producto no encontrado');
+                }
+                throw new Error(`Error: ${response.status} - ${response.statusText}`);
+            }
+
+            variantes = await response.json();
+            mostrarVariantes(variantes);
+
+        } catch (error) {
+            console.error('Error al cargar variantes:', error);
+            document.getElementById('variantes-container').innerHTML =
+                '<div class="error">Error al cargar las variantes. Por favor, intenta nuevamente.</div>';
+        }
+    }
+
+
+    function mostrarVariantes(variantes) {
+        const container = document.getElementById('variantes-container');
+
+        if (variantes.length === 0) {
+            container.innerHTML = '<div class="no-data">Este producto no tiene variantes disponibles.</div>';
+            return;
+        }
+
+        let html = '<div class="variantes-title">Selecciona una variante:</div>';
+        variantes.forEach(variante => {
+            const precioTexto = variante.precioAdicional > 0 ? ` (+$${variante.precioAdicional.toFixed(2)})` : '';
+            html += `
+                            <div class="variante-option"
+                                 data-id="${variante.id}"
+                                 data-precio="${variante.precioAdicional}"
+                                 onclick="seleccionarVariante(this)">
+                                <span class="variante-nombre">${variante.nombre}</span>
+                                ${precioTexto ? `<span class="variante-precio">${precioTexto}</span>` : ''}
+                            </div>
+                        `;
+        });
+
+        container.innerHTML = html;
+    }
+
+  
+    function cambiarCantidad(delta) {
+        const cantidadInput = document.getElementById('cantidad');
+        const nuevaCantidad = parseInt(cantidadInput.value) + delta;
+        if (nuevaCantidad >= 1) {
+            cantidadInput.value = nuevaCantidad;
+            actualizarPrecioTotal();
+        }
+    }
+
+   
+    function seleccionarVariante(elemento) {
+       
+        const todasLasVariantes = document.querySelectorAll('.variante-option');
+        todasLasVariantes.forEach(variante => {
+            variante.classList.remove('selected');
+        });
+
+       
+        elemento.classList.add('selected');
+        actualizarPrecioTotal();
+    }
+
+   
+    function actualizarPrecioTotal() {
+        const cantidad = parseInt(document.getElementById('cantidad').value);
+        const varianteSeleccionada = document.querySelector('.variante-option.selected');
+
+        let precioVariante = 0;
+        if (varianteSeleccionada) {
+            precioVariante = parseFloat(varianteSeleccionada.dataset.precio);
+        }
+
+        const precioTotal = (precioBase + precioVariante) * cantidad;
+        document.getElementById('precioTotal').textContent = `Total: $${precioTotal.toFixed(2)}`;
+    }
+
+   
+    function agregarAlPedido() {
+        const productoId = parseInt(getProductoSeleccionado());
+        const cantidad = parseInt(document.getElementById('cantidad').value);
+        const varianteSeleccionada = document.querySelector('.variante-option.selected');
+        const mesaId = parseInt(localStorage.getItem('mesaSeleccionada'));
+
+        if (!mesaId) {
+            alert('No se ha seleccionado una mesa.');
+            return;
+        }
+
+       
+        let ticketItem = {
+            productoId: productoId,
+            cantidad: cantidad
+        };
+
+        
+        if (varianteSeleccionada) {
+            ticketItem.varianteId = parseInt(varianteSeleccionada.dataset.id);
+        }
+
+        
+        let pedido = JSON.parse(localStorage.getItem('pedidoActual')) || {
+            mesaId: mesaId,
+            ticketItems: []
+        };
+
+        
+        const itemExistente = pedido.ticketItems.find(item =>
+            item.productoId === ticketItem.productoId &&
+            item.varianteId === ticketItem.varianteId
+        );
+
+        if (itemExistente) {
+           
+            itemExistente.cantidad += ticketItem.cantidad;
+        } else {
+            
+            pedido.ticketItems.push(ticketItem);
+        }
+
+        
+        localStorage.setItem('pedidoActual', JSON.stringify(pedido));
+
+        
+        alert('Producto agregado al pedido exitosamente');
+
+       
+        limpiarVarianteSeleccionada();
+        window.location.href = '/FinalizarPedido';
+    }
+
+  
+    function limpiarVarianteSeleccionada() {
+        localStorage.removeItem('productoSeleccionado');
+        localStorage.removeItem('productoNombre');
+        localStorage.removeItem('productoPrecio');
+    }
+
+    
+    document.addEventListener('DOMContentLoaded', function () {
+        cargarDatosProducto();
+        cargarVariantes();
+    });
+</script>

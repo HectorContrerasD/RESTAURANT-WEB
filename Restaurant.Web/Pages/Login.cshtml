@@ -21,10 +21,10 @@
 </html>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Verificar si ya está logueado
+           
             const token = localStorage.getItem('accessToken');
             if (token) {
-                // Si ya tiene token, redirigir a Pedidos
+              
                 window.location.href = '/Pedidos';
                 return;
             }
@@ -35,7 +35,7 @@
             const mensajeDiv = document.getElementById('mensaje');
             const loadingDiv = document.getElementById('loading');
 
-            // Manejar Enter key en los inputs
+           
             [usernameInput, passwordInput].forEach(input => {
                 input.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter') {
@@ -44,14 +44,14 @@
                 });
             });
 
-            // Manejar click del botón
+          
             loginBtn.addEventListener('click', login);
 
             async function login() {
                 const username = usernameInput.value.trim();
                 const password = passwordInput.value.trim();
 
-                // Validaciones básicas
+                
                 if (!username) {
                     mostrarMensaje('Por favor, ingrese su usuario', 'error');
                     usernameInput.focus();
@@ -64,7 +64,7 @@
                     return;
                 }
 
-                // Mostrar loading
+                
                 loginBtn.disabled = true;
                 loadingDiv.style.display = 'block';
                 mensajeDiv.style.display = 'none';
@@ -85,15 +85,15 @@
                     if (response.ok) {
                         const data = await response.json();
                         
-                        // Guardar access token en localStorage
+                       
                         localStorage.setItem('accessToken', data.accessToken);
                         
-                        // Guardar información adicional si la necesitas
+                        
                         localStorage.setItem('loginTime', new Date().getTime().toString());
                         
                         mostrarMensaje('Inicio de sesión exitoso. Redirigiendo...', 'success');
                         
-                        // Redirigir después de un breve delay
+                        
                         setTimeout(() => {
                             window.location.href = '/Pedidos';
                         }, 1000);
@@ -104,7 +104,7 @@
                         if (response.status === 401) {
                             errorMessage = 'Usuario o contraseña incorrectos';
                         } else if (response.status === 400) {
-                            // Manejar errores de validación
+                            
                             try {
                                 const errorData = await response.json();
                                 if (errorData.errors && Array.isArray(errorData.errors)) {
@@ -120,7 +120,7 @@
                         } else if (response.status >= 500) {
                             errorMessage = 'Error del servidor. Intente más tarde';
                         } else {
-                            // Para otros códigos de error
+                            
                             try {
                                 const errorData = await response.json();
                                 errorMessage = errorData.message || errorData.title || 'Error desconocido';
@@ -139,7 +139,7 @@
                         mostrarMensaje('Error de conexión. Intente nuevamente', 'error');
                     }
                 } finally {
-                    // Ocultar loading y habilitar botón
+                   
                     loginBtn.disabled = false;
                     loadingDiv.style.display = 'none';
                 }
@@ -150,7 +150,6 @@
                 mensajeDiv.className = `mensaje-${tipo}`;
                 mensajeDiv.style.display = 'block';
                 
-                // Auto-ocultar mensaje después de 5 segundos si es error
                 if (tipo === 'error') {
                     setTimeout(() => {
                         mensajeDiv.style.display = 'none';

@@ -1,0 +1,121 @@
+﻿@page
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Finalizar Pedido - Mesero</title>
+    <link rel="stylesheet" href="~/CSS/StyleMesero.css">
+</head>
+<body>
+    <div class="contenedor">
+        <h2 id="tituloMesa">Finalizar Pedido - Mesa</h2>
+        <div class="resumen-acciones">
+            <a href="/AgregarCategoria">+ Agregar más productos</a>
+            <div class="boton-grupo">
+                <button onclick="terminarPedido()" id="btnTerminarPedido">Terminar pedido</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+<script>
+    let pedidoActual = null;
+    let productos = {};
+
+    function getAuthToken() {
+        return localStorage.getItem('accessToken');
+    }
+
+  
+    function cargarPedidoActual() {
+        try {
+           
+            pedidoActual = JSON.parse(localStorage.getItem('pedidoActual'));
+
+           
+            let mesaId = null;
+            if (pedidoActual && pedidoActual.mesaId) {
+                mesaId = pedidoActual.mesaId;
+            } else {
+             
+                mesaId = localStorage.getItem('mesaSeleccionada');
+            }
+
+           
+            if (mesaId) {
+                document.getElementById('tituloMesa').textContent = `Finalizar Pedido - Mesa ${mesaId}`;
+            } else {
+                document.getElementById('tituloMesa').textContent = 'Finalizar Pedido - Mesa no seleccionada';
+            }
+
+        } catch (error) {
+            console.error('Error al cargar pedido:', error);
+            document.getElementById('tituloMesa').textContent = 'Finalizar Pedido - Error al cargar mesa';
+        }
+    }
+
+    async function terminarPedido() {
+        try {
+            if (!pedidoActual || !pedidoActual.ticketItems || pedidoActual.ticketItems.length === 0) {
+                alert('No hay productos en el pedido para finalizar.');
+                return;
+            }
+
+            const token = getAuthToken();
+            if (!token) {
+                alert('Token de autorización no encontrado. Por favor, inicia sesión nuevamente.');
+                return;
+            }
+
+            const btnTerminar = document.getElementById('btnTerminarPedido');
+            btnTerminar.disabled = true;
+            btnTerminar.textContent = 'Procesando...';
+
+       
+            const ticketPayload = {
+                mesaId: pedidoActual.mesaId,
+                ticketItems: pedidoActual.ticketItems
+            };
+
+         
+            const response = await fetch('https://restaurant-api.websitos256.com/api/ticket', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(ticketPayload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `Error: ${response.status} - ${response.statusText}`);
+            }
+
+            const ticketId = await response.json();
+
+         
+            localStorage.removeItem('pedidoActual');
+
+          
+            alert(`Pedido creado exitosamente. ID del ticket: ${ticketId}`);
+
+          
+            window.location.href = '/Pedidos'; 
+
+        } catch (error) {
+            console.error('Error al crear el ticket:', error);
+            alert(`Error al finalizar el pedido: ${error.message}`);
+
+           
+            const btnTerminar = document.getElementById('btnTerminarPedido');
+            btnTerminar.disabled = false;
+            btnTerminar.textContent = 'Terminar pedido';
+        }
+    }
+
+   
+    document.addEventListener('DOMContentLoaded', function () {
+        cargarPedidoActual();
+    });
+</script>
