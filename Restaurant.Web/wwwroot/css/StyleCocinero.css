@@ -359,7 +359,36 @@ nav.menu {
     display: flex;
     gap: 10px;
 }
+.estado-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 
+.estado-btn.activo {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.estado-btn.en-preparacion.activo {
+    background-color: #FF9800;
+}
+
+.estado-btn.listo.activo {
+    background-color: #4CAF50;
+}
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    font-size: 18px;
+}
+
+.error {
+    text-align: center;
+    padding: 20px;
+    color: red;
+    font-size: 16px;
+}
 
 .estado-btn {
     padding: 6px 12px;
