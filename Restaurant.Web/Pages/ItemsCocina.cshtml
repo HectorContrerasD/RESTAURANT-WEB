@@ -80,7 +80,7 @@
 
                 signalRConnection.on("TicketClosed", function (notification) {
                 console.log("Ticket cerrado:", notification);
-                showNotification(`Orden cerrada - Mesa ${notification.MesaNumero}`, "info");
+                showNotification(`Orden cerrada - Mesa ${notification.mesaNumero}`, "info");
                 cargarPedidos(); 
             });
 
@@ -93,16 +93,21 @@
                 console.log("Estado de item cambiado:", notification);
                 updateItemVisualState(notification);
                 if (notification.NewState &&
-                    (notification.NewState.toLowerCase().includes("preparacion") ||
+                    (notification.NewState.toLowerCase().includes("en preparacion") ||
                         notification.NewState.toLowerCase().includes("listo"))) {
-                    let mensaje = `Item ${notification.NewState}`;
+                    let mensaje = `Item ${notification.newState}`;
                     if (notification.MesaNumero) {
-                        mensaje = `Mesa ${notification.MesaNumero}: ${mensaje}`;
+                        mensaje = `Mesa ${notification.nesaNumero}: ${mensaje}`;
                     }
                     showNotification(mensaje, "info");
                 }
             });
-
+            signalRConnection.on("ItemCompleted", function (notification) {
+                console.log("Item completado:", notification);
+                let mensaje = `Producto de la mesa ${notification.mesaNumero} listo para servir`;
+                showNotification(mensaje, "success");
+               /*  cargarPedidos(); */ //duda
+            });
            signalRConnection.on("ReceiveMessage", function (user, message) {
                 console.log(`Mensaje de ${user}: ${message}`);
                 showNotification(`${user}: ${message}`, "info");
