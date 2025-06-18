@@ -5,10 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cocina</title>
     <link rel="stylesheet" href="~/CSS/StyleCocinero.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
 </head>
 
 <body>
     <h1 class="titulo-principal">Pedidos en Cocina</h1>
+
+
+    <div id="connectionStatus" style="padding: 5px 10px; margin-bottom: 10px; border-radius: 3px; font-size: 0.9em; text-align: center;">
+        <span id="statusText">Conectando...</span>
+    </div>
 
     <div id="loading" class="loading">Cargando pedidos...</div>
     <div id="error" class="error" style="display: none;"></div>
@@ -16,14 +22,218 @@
 </body>
 </html>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            cargarPedidos();
+        let signalRConnection = null;
 
+        document.addEventListener('DOMContentLoaded', function () {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/Login';
+                return;
+            }
+            initSignalR();
+            cargarPedidos();
         });
+
+        function initSignalR() {
+            try {
+                const token = localStorage.getItem('accessToken');
+                signalRConnection = new signalR.HubConnectionBuilder()
+                    .withUrl("https://restaurant-api.websitos256.com/restaurantHub", {
+                        accessTokenFactory: () => {
+                            const currentToken = localStorage.getItem("accessToken");
+                            console.log('Token para SignalR:', currentToken ? 'Token presente' : 'No token');
+                            return currentToken;
+                        },
+                        skipNegotiation: true,
+                        transport: signalR.HttpTransportType.WebSockets
+                    })
+                    .withAutomaticReconnect([0, 2000, 10000, 30000])
+                    .configureLogging(signalR.LogLevel.Information)
+                    .build();
+                signalRConnection.onclose(async (error) => {
+                    updateConnectionStatus('Desconectado', 'red');
+                    console.log('SignalR desconectado:', error);
+                });
+                signalRConnection.onreconnecting((error) => {
+                    updateConnectionStatus('Reconectando...', 'orange');
+                    console.log('SignalR reconectando...', error);
+                });
+                signalRConnection.onreconnected((connectionId) => {
+                    updateConnectionStatus('Conectado', 'green');
+                    console.log('SignalR reconectado:', connectionId);
+                });
+                setupSignalRListeners();
+                startSignalRConnection();
+
+            } catch (error) {
+                console.error('Error al inicializar SignalR:', error);
+                updateConnectionStatus('Error de conexión', 'red');
+            }
+        }
+
+        function setupSignalRListeners() {
+           signalRConnection.on("TicketCreated", function (notification) {
+                console.log("Nuevo ticket creado:", notification);
+                showNotification(`Nueva orden - Mesa ${notification.mesaNumero}`, "success");
+                cargarPedidos(); 
+            });
+
+                signalRConnection.on("TicketClosed", function (notification) {
+                console.log("Ticket cerrado:", notification);
+                showNotification(`Orden cerrada - Mesa ${notification.MesaNumero}`, "info");
+                cargarPedidos(); 
+            });
+
+            signalRConnection.on("RefreshTicketsList", function (data) {
+                console.log("Actualizar lista de tickets:", data);
+                cargarPedidos(); 
+            });
+
+            signalRConnection.on("ItemStateChanged", function (notification) {
+                console.log("Estado de item cambiado:", notification);
+                updateItemVisualState(notification);
+                if (notification.NewState &&
+                    (notification.NewState.toLowerCase().includes("preparacion") ||
+                        notification.NewState.toLowerCase().includes("listo"))) {
+                    let mensaje = `Item ${notification.NewState}`;
+                    if (notification.MesaNumero) {
+                        mensaje = `Mesa ${notification.MesaNumero}: ${mensaje}`;
+                    }
+                    showNotification(mensaje, "info");
+                }
+            });
+
+           signalRConnection.on("ReceiveMessage", function (user, message) {
+                console.log(`Mensaje de ${user}: ${message}`);
+                showNotification(`${user}: ${message}`, "info");
+            });
+        }
+
+        async function startSignalRConnection() {
+            try {
+                updateConnectionStatus('Conectando...', 'orange');
+
+                const token = localStorage.getItem('accessToken');
+                if (!token) {
+                    throw new Error('No hay token de acceso');
+                }
+                console.log('Iniciando conexión SignalR...');
+                await signalRConnection.start();
+                updateConnectionStatus('Conectado', 'green');
+                console.log("Conectado a SignalR Hub - Vista Cocina");
+
+            } catch (err) {
+                console.error("Error conectando a SignalR: " + err.toString());
+                updateConnectionStatus('Error de conexión', 'red');
+                if (err.toString().includes('401') || err.toString().includes('Unauthorized')) {
+                    console.log('Error de autorización, redirigiendo al login...');
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('loginTime');
+                    window.location.href = '/Login';
+                    return;
+                }
+                setTimeout(() => {
+                    if (signalRConnection.state === signalR.HubConnectionState.Disconnected) {
+                        startSignalRConnection();
+                    }
+                }, 5000);
+            }
+        }
+        function updateConnectionStatus(status, color) {
+            const statusText = document.getElementById('statusText');
+            const connectionStatus = document.getElementById('connectionStatus');
+            statusText.textContent = status;
+            connectionStatus.style.backgroundColor = color === 'green' ? '#d4edda' :
+                color === 'orange' ? '#fff3cd' : '#f8d7da';
+            connectionStatus.style.color = color === 'green' ? '#155724' :
+                color === 'orange' ? '#856404' : '#721c24';
+            connectionStatus.style.border = `1px solid ${color === 'green' ? '#c3e6cb' :
+                color === 'orange' ? '#ffeaa7' : '#f5c6cb'}`;
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        padding: 12px 18px;
+                        border-radius: 8px;
+                        color: white;
+                        font-weight: 500;
+                        font-size: 14px;
+                        z-index: 1000;
+                        opacity: 0;
+                        transform: translateX(100%);
+                        transition: all 0.3s ease;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        max-width: 300px;
+                        word-wrap: break-word;
+                        cursor: pointer;
+                    `;
+
+            switch (type) {
+                case 'success':
+                    notification.style.backgroundColor = '#28a745';
+                    break;
+                case 'info':
+                    notification.style.backgroundColor = '#17a2b8';
+                    break;
+                case 'warning':
+                    notification.style.backgroundColor = '#ffc107';
+                    notification.style.color = '#212529';
+                    break;
+                case 'error':
+                    notification.style.backgroundColor = '#dc3545';
+                    break;
+                default:
+                    notification.style.backgroundColor = '#6c757d';
+            }
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }, 4000);
+            notification.addEventListener('click', () => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            });
+        }
+
+        function updateItemVisualState(notification) {
+            const pedidoId = notification.TicketItemId;
+            if (!pedidoId) return;
+            const preparacionBtn = document.querySelector(`[data-pedido-id="${pedidoId}"].en-preparacion`);
+            const listoBtn = document.querySelector(`[data-pedido-id="${pedidoId}"].listo`);
+            if (preparacionBtn && listoBtn) {
+                if (notification.NewState && notification.NewState.toLowerCase().includes("preparacion")) {
+                    preparacionBtn.classList.add('activo');
+                    preparacionBtn.disabled = true;
+                    listoBtn.disabled = false;
+                } else if (notification.NewState && notification.NewState.toLowerCase().includes("listo")) {
+                    listoBtn.classList.add('activo');
+                    listoBtn.disabled = true;
+                }
+            }
+        }
 
         function getProductoImage(nombreProducto) {
             const nombre = nombreProducto.toLowerCase();
-           
             if (nombre.includes('sencilla')) {
                 return '/assets/HamburguesaSencilla2.png';
             } else if (nombre.includes('doble')) {
@@ -31,19 +241,16 @@
             } else if (nombre.includes('queso')) {
                 return '/assets/HamburguesaConQueso2.png';
             }
-         
             else if (nombre.includes('papas chicas')) {
                 return '/assets/PapasChicas.png';
             } else if (nombre.includes('papas grandes')) {
                 return '/assets/PapasGrandes.png';
             }
-            // Refrescos (Categoría 3)
             else if (nombre.includes('refresco chico')) {
                 return '/assets/RefrescoChico.png';
             } else if (nombre.includes('refresco grande') || nombre.includes('regresco grande')) {
                 return '/assets/RefrescoGrande.png';
             }
-            // Fallbacks más generales
             else if (nombre.includes('hamburguesa')) {
                 return '/assets/HamburguesaSencilla2.png';
             } else if (nombre.includes('papas')) {
@@ -51,7 +258,7 @@
             } else if (nombre.includes('refresco') || nombre.includes('regresco') || nombre.includes('bebida')) {
                 return '/assets/RefrescoChico.png';
             }
-            // Imagen por defecto
+            
             return '/assets/HamburguesaSencilla2.png';
         }
 
@@ -67,7 +274,8 @@
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache' 
                     }
                 });
 
@@ -87,13 +295,14 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('error').style.display = 'block';
                 document.getElementById('error').textContent = 'Error al cargar los pedidos. Reintentando...';
+                setTimeout(() => {
+                    cargarPedidos();
+                }, 3000);
             }
         }
 
         function mostrarPedidos(pedidos) {
             const container = document.getElementById('pedidos-container');
-
-            // Agrupar pedidos por ticket
             const pedidosPorTicket = {};
             pedidos.forEach(pedido => {
                 const ticketId = pedido.ticket.id;
@@ -106,55 +315,62 @@
                 }
                 pedidosPorTicket[ticketId].pedidos.push(pedido);
             });
-
-            // Generar HTML
             let html = '';
             Object.keys(pedidosPorTicket).forEach(ticketId => {
                 const grupo = pedidosPorTicket[ticketId];
                 const fecha = new Date(grupo.fecha).toLocaleDateString('es-ES');
 
                 html += `
-                    <div class="pedido-container">
-                        <div class="encabezados">
-                            <h2 class="nombre-mesa">MESA ${grupo.ticket.mesa.numero}</h2>
-                            <h2 class="numero-ticket">TICKET #${grupo.ticket.id}</h2>
-                        </div>
-                        <ul class="lista-pedidos">
-                `;
+                            <div class="pedido-container">
+                                <div class="encabezados">
+                                    <h2 class="nombre-mesa">MESA ${grupo.ticket.mesa.numero}</h2>
+                                    <h2 class="numero-ticket">TICKET #${grupo.ticket.id}</h2>
+                                </div>
+                                <ul class="lista-pedidos">
+                        `;
 
                 grupo.pedidos.forEach(pedido => {
                     const descripcion = pedido.variante ? pedido.variante.nombre : '';
                     const notas = pedido.notas ? pedido.notas : '';
                     const descripcionCompleta = [descripcion, notas].filter(Boolean).join(' - ');
 
+                    const preparacionActivo = pedido.estado && pedido.estado.toLowerCase().includes('preparacion');
+                    const listoActivo = pedido.estado && pedido.estado.toLowerCase().includes('listo');
+
                     html += `
-                        <li class="item-pedido">
-                            <img src="${getProductoImage(pedido.producto.nombre)}" class="imagen-producto" />
-                            <div class="detalles-item">
-                                <p class="nombre-producto">${pedido.producto.nombre}</p>
-                                <p class="descripcion">${descripcionCompleta}</p>
-                                <p class="cantidad">Cantidad: ${pedido.cantidad}</p>
-                                <div class="botones-estado">
-                                    <button class="estado-btn en-preparacion" data-pedido-id="${pedido.id}" onclick="cambiarEstado(${pedido.id}, 'preparacion')">
-                                        En preparación
-                                    </button>
-                                    <button class="estado-btn listo" data-pedido-id="${pedido.id}" onclick="cambiarEstado(${pedido.id}, 'listo')" disabled>
-                                        Listo
-                                    </button>
-                                </div>
-                            </div>
-                        </li>
-                    `;
+                                <li class="item-pedido">
+                                    <img src="${getProductoImage(pedido.producto.nombre)}" class="imagen-producto" />
+                                    <div class="detalles-item">
+                                        <p class="nombre-producto">${pedido.producto.nombre}</p>
+                                        <p class="descripcion">${descripcionCompleta}</p>
+                                        <p class="cantidad">Cantidad: ${pedido.cantidad}</p>
+                                        <div class="botones-estado">
+                                            <button class="estado-btn en-preparacion ${preparacionActivo ? 'activo' : ''}"
+                                                    data-pedido-id="${pedido.id}"
+                                                    onclick="cambiarEstado(${pedido.id}, 'preparacion')"
+                                                    ${preparacionActivo ? 'disabled' : ''}>
+                                                En preparación
+                                            </button>
+                                            <button class="estado-btn listo ${listoActivo ? 'activo' : ''}"
+                                                    data-pedido-id="${pedido.id}"
+                                                    onclick="cambiarEstado(${pedido.id}, 'listo')"
+                                                    ${listoActivo ? 'disabled' : !preparacionActivo ? 'disabled' : ''}>
+                                                Listo
+                                            </button>
+                                        </div>
+                                    </div>
+                                </li>
+                            `;
                 });
 
                 html += `
-                        </ul>
-                        <p class="fecha">Fecha: ${fecha}</p>
-                    </div>
-                `;
+                                </ul>
+                                <p class="fecha">Fecha: ${fecha}</p>
+                            </div>
+                        `;
             });
 
-            container.innerHTML = html;
+            container.innerHTML = html || '<p style="text-align: center; padding: 20px;">No hay pedidos en cocina</p>';
         }
 
         async function cambiarEstado(pedidoId, estado) {
@@ -178,27 +394,37 @@
                 });
 
                 if (response.ok) {
-                    // Actualizar el estado visual de los botones
-                    const preparacionBtn = document.querySelector(`[data-pedido-id="${pedidoId}"].en-preparacion`);
+                   const preparacionBtn = document.querySelector(`[data-pedido-id="${pedidoId}"].en-preparacion`);
                     const listoBtn = document.querySelector(`[data-pedido-id="${pedidoId}"].listo`);
 
                     if (estado === 'preparacion') {
                         preparacionBtn.classList.add('activo');
                         preparacionBtn.disabled = true;
                         listoBtn.disabled = false;
+                        showNotification('Item en preparación', 'info');
                     } else if (estado === 'listo') {
                         listoBtn.classList.add('activo');
                         listoBtn.disabled = true;
+                        showNotification('Item listo para servir', 'success');
                     }
                 } else if (response.status === 401) {
                     localStorage.removeItem('accessToken');
                     window.location.href = '/Login';
                 } else {
                     console.error('Error al cambiar estado');
+                    showNotification('Error al cambiar estado del item', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error al cambiar el estado del pedido');
+                showNotification('Error al cambiar el estado del pedido', 'error');
             }
         }
+        window.recargarPedidos = function () {
+            cargarPedidos();
+        };
+        window.addEventListener('beforeunload', function () {
+            if (signalRConnection) {
+                signalRConnection.stop();
+            }
+        });
     </script>
