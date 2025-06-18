@@ -93,13 +93,14 @@
                 console.log("Estado de item cambiado:", notification);
                 updateItemVisualState(notification);
                 if (notification.NewState &&
-                    (notification.NewState.toLowerCase().includes("en preparacion") ||
+                    (notification.NewState.toLowerCase().includes("en preparación") ||
                         notification.NewState.toLowerCase().includes("listo"))) {
                     let mensaje = `Item ${notification.newState}`;
                     if (notification.MesaNumero) {
                         mensaje = `Mesa ${notification.nesaNumero}: ${mensaje}`;
                     }
                     showNotification(mensaje, "info");
+                    cargarPedidos();
                 }
             });
             signalRConnection.on("ItemCompleted", function (notification) {
